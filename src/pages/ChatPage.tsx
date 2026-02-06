@@ -55,8 +55,13 @@ export default function ChatPage() {
 
   // Auto-scroll to bottom
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (el) {
+      try {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      } catch (e) {
+        el.scrollTop = el.scrollHeight;
+      }
     }
   }, [messages]);
 
@@ -275,14 +280,14 @@ export default function ChatPage() {
         </div>
 
         {/* Messages Area */}
-        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        <ScrollArea className="flex-1 p-4 overflow-scroll" ref={scrollRef}>
           <div className="space-y-4 max-w-3xl ">
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'}`}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`flex gap-3 max-w-[85%] ${message.role === 'user' ? 'flex-row' : 'flex-row-reverse'}`}>
+                <div className={`flex gap-3 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md ${
                     message.role === 'user' 
                       ? 'bg-slate-200 dark:bg-slate-700' 
@@ -319,9 +324,9 @@ export default function ChatPage() {
               </div>
             ))}
             {isLoading && (
-              <div className="flex justify-end">
-                <div className="flex gap-3 flex-row-reverse">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md">
+              <div className="flex justify-start">
+                <div className="flex gap-3 flex-row max-w-[85%]">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md flex-shrink-0">
                     <Bot className="w-5 h-5 text-white" />
                   </div>
                   <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl rounded-bl-none px-5 py-4 shadow-sm">
@@ -393,9 +398,9 @@ export default function ChatPage() {
 
       {/* Review Modal */}
       {showReviewModal && pendingData && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-0 z-50">
           <Card className="w-full max-w-lg max-h-[90vh] overflow-auto border-0 shadow-2xl">
-            <CardContent className="p-6">
+            <CardContent className="p-4 pt-0">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center">
                   <AlertCircle className="w-6 h-6 text-amber-600" />
@@ -454,7 +459,7 @@ export default function ChatPage() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl">
+                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 bg-emerald-50 dark:bg-emerald-900/20 p-1 rounded-xl">
                   <CheckCircle className="w-5 h-5 text-emerald-500" />
                   <span>سيتم إرسال القيد للمراجعة قبل الحفظ النهائي</span>
                 </div>
