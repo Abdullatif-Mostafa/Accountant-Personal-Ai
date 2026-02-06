@@ -92,7 +92,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="p-6">
+    <div className="p-6" dir="rtl">
       {/* Welcome Banner */}
       <div className="mb-8 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl p-6 text-white shadow-lg shadow-emerald-500/20">
         <div className="flex items-center justify-between">

@@ -47,7 +47,7 @@ export function MobileHeader() {
   ];
 
   return (
-    <div className="lg:hidden bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700 p-4 sticky top-0 z-50">
+    <div className="lg:hidden bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700 p-4 sticky top-0 z-50 ">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Sheet open={open} onOpenChange={setOpen}>
