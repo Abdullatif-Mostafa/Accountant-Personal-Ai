@@ -119,7 +119,7 @@ export default function LoginPage() {
             <Button
               type="button"
               variant="outline"
-              className="w-full border-slate-200 text-slate-700 hover:bg-slate-50"
+              className="w-full border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-600"
               onClick={fillDemoCredentials}
               disabled={isLoading}
             >
