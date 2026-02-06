@@ -111,9 +111,9 @@ export default function EntriesPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className="text-right py-2 px-3 text-xs text-slate-500">الحساب</th>
-                <th className="text-right py-2 px-3 text-xs text-slate-500">مدين</th>
-                <th className="text-right py-2 px-3 text-xs text-slate-500">دائن</th>
+                <th className="text-right py-2 px-3 text-md text-slate-500">الحساب</th>
+                <th className="text-right py-2 px-3 text-md text-slate-500">مدين</th>
+                <th className="text-right py-2 px-3 text-md text-slate-500">دائن</th>
               </tr>
             </thead>
             <tbody>
@@ -214,7 +214,7 @@ export default function EntriesPage() {
               <TabsTrigger value="pending" className="relative">
                 قيد المراجعة
                 {pendingCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center">
+                  <span className="absolute -top-4 -left-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center">
                     {pendingCount}
                   </span>
                 )}
@@ -348,7 +348,7 @@ export default function EntriesPage() {
 
               {/* Accounting Table */}
               <div>
-                <p className="font-medium mb-3">القيد المحاسبي</p>
+                <p className="font-medium mb-3 text-white">القيد المحاسبي</p>
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
                   <table className="w-full">
                     <thead className="bg-slate-50 dark:bg-slate-800">
