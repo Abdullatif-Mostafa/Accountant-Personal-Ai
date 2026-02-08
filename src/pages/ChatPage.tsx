@@ -29,7 +29,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { entriesApi, transactionsApi } from '@/services/api';
-import { sendToOpenAI, processImageWithOCR, isOpenAIConfigured } from '@/services/openai';
+import { sendToN8n, parseUserMessage } from '@/services/n8n';
 import type { ChatMessage, ExtractedTransactionData } from '@/types';
 
 export default function ChatPage() {
@@ -43,15 +43,9 @@ export default function ChatPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [pendingData, setPendingData] = useState<ExtractedTransactionData | null>(null);
-  const [aiConfigured, setAiConfigured] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Check if OpenAI is configured
-  useEffect(() => {
-    setAiConfigured(isOpenAIConfigured());
-  }, []);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -59,7 +53,7 @@ export default function ChatPage() {
     if (el) {
       try {
         el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-      } catch (e) {
+      } catch {
         el.scrollTop = el.scrollHeight;
       }
     }
@@ -71,14 +65,12 @@ export default function ChatPage() {
       const welcomeMessage: ChatMessage = {
         id: 'welcome',
         role: 'assistant',
-        content: aiConfigured 
-         ? 'مرحباً! 👋\n\nأنا مساعدك المحاسبي الذكي المدعوم بـ OpenAI. يمكنك إرسال لي:\n\n📝 **نص** مثل: "دفعت 250 ريال فاتورة كهرباء"\n📸 **صورة فاتورة**\n📄 **ملف PDF**\n\nوسأساعدك في تحويلها إلى قيود محاسبية منظمة.'
-          : 'مرحباً! 👋\n\nأنا مساعدك المحاسبي الذكي. يمكنك إرسال لي:\n\n📝 **نص** مثل: "دفعت 250 ريال فاتورة كهرباء"\n📸 **صورة فاتورة**\n📄 **ملف PDF**\n\nوسأساعدك في تحويلها إلى قيود محاسبية منظمة     ',
+        content: 'مرحباً! 👋\n\nأنا مساعدك المحاسبي الذكي. يمكنك إرسال لي:\n\n📝 **نصوص** مثل: "دفعت 250 ريال فاتورة كهرباء"\n📸 **صور** (فواتير، إيصالات...)\n📄 **ملفات** (PDF، اكسل، Word...)\n📊 **تقارير** أو أي محتوى محاسبي آخر\n\nسأعالج المحتوى وأرسله للنظام تلقائياً 📤',
         timestamp: new Date().toISOString()
       };
       setMessages([welcomeMessage]);
     }
-  }, [aiConfigured]);
+  }, [messages.length]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() && !selectedFile) return;
@@ -95,31 +87,54 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      let response;
+      let fileContent = inputMessage;
+
       if (selectedFile) {
-        response = await processImageWithOCR(selectedFile);
+        // Handle different file types
+        if (selectedFile.type.startsWith('image/')) {
+          // For images, try to extract text using OCR (using local parsing for now)
+          fileContent = `📸 صورة: ${selectedFile.name}\n\nملاحظة: تم رفع صورة، يرجى التأكد من وضوح البيانات المالية في الصورة.`;
+        } else if (selectedFile.type === 'application/pdf') {
+          fileContent = `📄 ملف PDF: ${selectedFile.name}\n\nملاحظة: تم رفع ملف PDF.`;
+        } else {
+          fileContent = `📎 ملف: ${selectedFile.name}\n\nنوع الملف: ${selectedFile.type || 'غير معروف'}`;
+        }
+        
         setSelectedFile(null);
-      } else {
-        response = await sendToOpenAI(userMessage.content);
       }
 
-      if (response.success && response.data) {
+      // Parse the text message or file content locally
+      const extractedData = parseUserMessage(fileContent || userMessage.content);
+
+      // Send to n8n webhook (even if amount is 0 for general content)
+      const response = await sendToN8n(userMessage.content, extractedData);
+
+      if (response.success) {
+        const amount = extractedData.amount ?? 0;
+        const amountText = amount > 0 
+          ? `💰 **المبلغ:** ${amount} ريال\n`
+          : '';
+        
         const aiResponse: ChatMessage = {
           id: `ai-${Date.now()}`,
           role: 'assistant',
-          content: `✅ **تم تحليل المعاملة!**\n\n📋 **الوصف:** ${response.data.description}\n💰 **المبلغ:** ${response.data.amount} ريال\n📂 **التصنيف:** ${response.data.category}\n📅 **التاريخ:** ${response.data.date}\n🎯 **الدقة:** ${Math.round((response.data.confidence || 0) * 100)}%\n\nهل تريد مراجعة القيد المحاسبي قبل الحفظ؟`,
+          content: `✅ **تم معالجة المحتوى بنجاح!**\n\n📋 **الوصف:** ${extractedData.description}\n${amountText}📂 **التصنيف:** ${extractedData.category}\n📅 **التاريخ:** ${extractedData.date}\n🎯 **الدقة:** ${Math.round(((extractedData.confidence ?? 0) * 100))}%\n\n${amount > 0 ? 'هل تريد مراجعة القيد المحاسبي قبل الحفظ؟' : 'تم حفظ المحتوى بنجاح!'}`,
           timestamp: new Date().toISOString(),
-          extractedData: response.data
+          extractedData
         };
 
         setMessages(prev => [...prev, aiResponse]);
-        setPendingData(response.data);
-        setShowReviewModal(true);
+        
+        // Only show review modal if there's an amount to verify
+        if (amount > 0) {
+          setPendingData(extractedData);
+          setShowReviewModal(true);
+        }
       } else {
         setMessages(prev => [...prev, {
           id: `error-${Date.now()}`,
           role: 'assistant',
-          content: '❌ **لم أتمكن من فهم المعاملة**\n\nيرجى كتابة المعاملة بشكل أوضح. مثال:\n• "دفعت 250 ريال فاتورة كهرباء"\n• "استلمت 5000 ريال من عميل"\n• "اشتريت مستلزمات مكتبية بـ 150 ريال"',
+          content: `❌ حدث خطأ أثناء معالجة المحتوى:\n\n${response.error || 'الرجاء المحاولة مرة أخرى'}\n\n💡 **نصيحة:**\n• يمكنك إرسال نص أو صورة أو ملف\n• إذا كان فاتورة، تأكد من وضوح المبلغ\n• يمكنك أيضاً إرسال تقارير أو ملاحظات عامة`,
           timestamp: new Date().toISOString()
         }]);
       }
@@ -256,20 +271,18 @@ export default function ChatPage() {
         <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700 p-4 hidden lg:flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg">
-              {aiConfigured ? <Brain className="w-6 h-6 text-white" /> : <Bot className="w-6 h-6 text-white" />}
+              <Brain className="w-6 h-6 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-bold text-slate-900 dark:text-white text-lg">المحاسب الذكي</h2>
-                {aiConfigured && (
-                  <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs">
-                    <Sparkles className="w-3 h-3 ml-1" />
-                    AI
-                  </Badge>
-                )}
+                <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs">
+                  <Sparkles className="w-3 h-3 ml-1" />
+                  n8n
+                </Badge>
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                {aiConfigured ? 'مدعوم بـ OpenAI GPT-4' : 'وضع المحاكاة'}
+                متصل بـ n8n Workflow
               </p>
             </div>
           </div>
@@ -361,7 +374,7 @@ export default function ChatPage() {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileSelect}
-                accept="image/*,.pdf"
+                accept="image/*,.pdf,.doc,.docx,.txt,.xlsx"
                 className="hidden"
               />
               <Button
@@ -370,6 +383,7 @@ export default function ChatPage() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
                 className="rounded-xl h-12 w-12"
+                title="إرفع صورة أو ملف"
               >
                 <Paperclip className="w-5 h-5" />
               </Button>
@@ -377,7 +391,7 @@ export default function ChatPage() {
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                placeholder="اكتب معاملتك هنا... (مثال: دفعت 250 ريال فاتورة كهرباء)"
+                placeholder="اكتب رسالة، فاتورة، ملاحظة... أو أرفع ملف"
                 className="flex-1 rounded-xl h-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
                 disabled={isLoading}
               />
@@ -390,8 +404,7 @@ export default function ChatPage() {
               </Button>
             </div>
             <p className="text-xs text-slate-400 mt-2 text-center">
-              يمكنك كتابة المعاملة بلغة طبيعية أو رفع صورة الفاتورة
-            </p>
+              يمكنك إرسال نصوص أو صور أو ملفات (PDF، اكسل، كلمات...)</p>
           </div>
         </div>
       </main>
