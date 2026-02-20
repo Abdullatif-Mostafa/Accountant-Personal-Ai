@@ -12,6 +12,7 @@ import ReportsPage from '@/pages/ReportsPage';
 import AccountsPage from '@/pages/AccountsPage';
 import SettingsPage from '@/pages/SettingsPage';
 import HelpPage from '@/pages/HelpPage';
+import NotFoundPage from '@/pages/NotFoundPage';
 import { Toaster } from '@/components/ui/sonner';
 import { AppLayout } from '@/components/layout/AppLayout';
 
@@ -146,8 +147,8 @@ function AppRoutes() {
         } 
       />
 
-      {/* Catch all - redirect to landing */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Catch all - show 404 page */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
