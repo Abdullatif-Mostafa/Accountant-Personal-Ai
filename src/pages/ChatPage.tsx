@@ -100,27 +100,18 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      let fileContent = inputMessage;
+      // If user selected a file, use the input message (if any) as the content
+      // Don't add automatic descriptions for files
+      const fileContent = inputMessage || (selectedFile ? selectedFile.name : '');
+      
+      // Parse the text message or file name
+      const extractedData = parseUserMessage(fileContent);
 
-      if (selectedFile) {
-        // Handle different file types
-        if (selectedFile.type.startsWith('image/')) {
-          // For images, try to extract text using OCR (using local parsing for now)
-          fileContent = `📸 صورة: ${selectedFile.name}\n\nملاحظة: تم رفع صورة، يرجى التأكد من وضوح البيانات المالية في الصورة.`;
-        } else if (selectedFile.type === 'application/pdf') {
-          fileContent = `📄 ملف PDF: ${selectedFile.name}\n\nملاحظة: تم رفع ملف PDF.`;
-        } else {
-          fileContent = `📎 ملف: ${selectedFile.name}\n\nنوع الملف: ${selectedFile.type || 'غير معروف'}`;
-        }
-      }
-      // Parse the text message or file content locally
-      const extractedData = parseUserMessage(fileContent || userMessage.content);
-
-      // Send to n8n webhook with image if it's an image file
+      // Send to n8n webhook with file if selected
       const response = await sendToN8n(
-        userMessage.content,
+        userMessage.content || selectedFile?.name || '',
         extractedData,
-        selectedFile?.type.startsWith('image/') ? selectedFile : undefined
+        selectedFile || undefined
       );
       console.log(" response ", response)
       
