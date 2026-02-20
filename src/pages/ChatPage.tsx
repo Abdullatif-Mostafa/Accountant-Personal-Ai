@@ -43,6 +43,8 @@ export default function ChatPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   // store blob URL for image preview
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImageForModal, setSelectedImageForModal] = useState<string | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [pendingData, setPendingData] = useState<ExtractedTransactionData | null>(null);
   
@@ -398,8 +400,11 @@ export default function ChatPage() {
                     <img
                       src={imagePreviewUrl}
                       alt="preview"
-                      className="max-h-32 cursor-pointer rounded-lg shadow-md"
-                      onClick={() => window.open(imagePreviewUrl, '_blank')}
+                      className="max-h-32 cursor-pointer rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                      onClick={() => {
+                        setSelectedImageForModal(imagePreviewUrl);
+                        setShowImageModal(true);
+                      }}
                     />
                   </div>
                 )}
@@ -444,6 +449,32 @@ export default function ChatPage() {
           </div>
         </div>
       </main>
+
+      {/* Image Preview Modal */}
+      {showImageModal && selectedImageForModal && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => setShowImageModal(false)}
+        >
+          <div 
+            className="relative max-w-2xl max-h-[90vh] flex items-center justify-center"
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          >
+            <img
+              src={selectedImageForModal}
+              alt="full-size"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            />
+            <button
+              onClick={() => setShowImageModal(false)}
+              className="absolute top-4 right-4 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-2 shadow-lg transition-colors"
+              title="إغلاق"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Review Modal */}
       {showReviewModal && pendingData && (
