@@ -24,6 +24,51 @@ interface N8nPayload {
 }
 
 /**
+ * Helper function to compress image before converting to base64
+ */
+async function compressImage(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Reduce dimensions if too large (max 1920x1440)
+        if (width > 1920 || height > 1440) {
+          const ratio = Math.min(1920 / width, 1440 / height);
+          width *= ratio;
+          height *= ratio;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+              } else {
+                resolve(file);
+              }
+            },
+            'image/jpeg',
+            0.8 // 80% quality
+          );
+        }
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
  * Helper function to convert File to base64
  */
 export async function fileToBase64(file: File): Promise<string> {
@@ -60,10 +105,12 @@ export async function sendToN8n(
 
     // Add image data if provided
     if (imageFile) {
-      const base64 = await fileToBase64(imageFile);
+      // Compress image before sending
+      const compressedFile = await compressImage(imageFile);
+      const base64 = await fileToBase64(compressedFile);
       payload.imageData = {
         base64,
-        mimeType: imageFile.type,
+        mimeType: 'image/jpeg',
         fileName: imageFile.name
       };
     }
@@ -72,8 +119,8 @@ export async function sendToN8n(
 
     // Try with POST request
     const controller = new AbortController();
-    // Increase timeout for image uploads (30 seconds for images, 10 for text)
-    const timeoutDuration = imageFile ? 30000 : 10000;
+    // Increase timeout significantly (60 seconds for images, 15 for text)
+    const timeoutDuration = imageFile ? 60000 : 15000;
     const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
 
     const response = await fetch(N8N_WEBHOOK_URL, {
@@ -118,10 +165,10 @@ export async function sendToN8n(
     });
 
     if (isAbortError) {
-      const duration = imageFile ? '30 ثانية' : '10 ثواني';
+      const duration = imageFile ? '60 ثانية' : '15 ثانية';
       return {
         success: false,
-        error: `⚠️ انتهت مهلة الاتصال (${duration}):\n\nقد يكون السبب:\n1. اتصال إنترنت ضعيف\n2. الصورة كبيرة جداً\n3. خادم n8n غير متاح\n\nحاول مرة أخرى بعد قليل`
+        error: `⚠️ انتهت مهلة الاتصال (${duration}):\n\nقد يكون السبب:\n1. اتصال إنترنت ضعيف جداً\n2. خادم n8n غير متاح أو بطيء\n3. الصورة لم تُضغط بشكل صحيح\n\nحاول:\n• اسحب الصورة إلى حدة أصغر\n• استخدم صورة ذات جودة أقل\n• تحقق من سرعة الإنترنت`
       };
     }
 
