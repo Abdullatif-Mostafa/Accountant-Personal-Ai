@@ -72,7 +72,9 @@ export async function sendToN8n(
 
     // Try with POST request
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    // Increase timeout for image uploads (30 seconds for images, 10 for text)
+    const timeoutDuration = imageFile ? 30000 : 10000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
 
     const response = await fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
@@ -104,17 +106,30 @@ export async function sendToN8n(
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'خطأ غير معروف';
+    
+    // Handle abort errors separately
+    const isAbortError = error instanceof Error && (error.name === 'AbortError' || errorMessage.includes('aborted'));
+    
     console.error('n8n request error:', {
       error: errorMessage,
       url: N8N_WEBHOOK_URL,
+      isAbortError,
       type: error instanceof TypeError ? 'TypeError' : typeof error
     });
 
-    // If it's a CORS error
-    if (errorMessage.includes('Failed to fetch') || errorMessage === 'The user aborted a request.') {
+    if (isAbortError) {
+      const duration = imageFile ? '30 ثانية' : '10 ثواني';
       return {
         success: false,
-        error: `⚠️ مشكلة في الاتصال:\n${errorMessage}\n\nتأكد من أن:\n1. رابط n8n صحيح\n2. الـ webhook مفعّل\n3. السماح بـ CORS من جميع الأصول`
+        error: `⚠️ انتهت مهلة الاتصال (${duration}):\n\nقد يكون السبب:\n1. اتصال إنترنت ضعيف\n2. الصورة كبيرة جداً\n3. خادم n8n غير متاح\n\nحاول مرة أخرى بعد قليل`
+      };
+    }
+
+    // If it's a CORS error
+    if (errorMessage.includes('Failed to fetch')) {
+      return {
+        success: false,
+        error: `⚠️ مشكلة في الاتصال:\n\nتأكد من أن:\n1. رابط n8n صحيح\n2. الـ webhook مفعّل\n3. السماح بـ CORS من جميع الأصول`
       };
     }
 
