@@ -41,6 +41,8 @@ export default function ChatPage() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // store blob URL for image preview
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [pendingData, setPendingData] = useState<ExtractedTransactionData | null>(null);
   
@@ -58,6 +60,15 @@ export default function ChatPage() {
       }
     }
   }, [messages]);
+
+  // revoke object URL when no longer needed
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
 
   // Add welcome message on first load
   useEffect(() => {
@@ -99,14 +110,21 @@ export default function ChatPage() {
         } else {
           fileContent = `📎 ملف: ${selectedFile.name}\n\nنوع الملف: ${selectedFile.type || 'غير معروف'}`;
         }
-        setSelectedFile(null);
       }
       // Parse the text message or file content locally
       const extractedData = parseUserMessage(fileContent || userMessage.content);
 
-      // Send to n8n webhook (even if amount is 0 for general content)
-      const response = await sendToN8n(userMessage.content, extractedData);
-      console.log(" response ",response)      
+      // Send to n8n webhook with image if it's an image file
+      const response = await sendToN8n(
+        userMessage.content,
+        extractedData,
+        selectedFile?.type.startsWith('image/') ? selectedFile : undefined
+      );
+      console.log(" response ", response)
+      
+      setSelectedFile(null);
+      setImagePreviewUrl(null);
+      
       if (response.success) {
         const amount = extractedData.amount ?? 0;
         const amountText = amount > 0 
@@ -156,6 +174,12 @@ export default function ChatPage() {
         return;
       }
       setSelectedFile(file);
+      if (file.type.startsWith('image/')) {
+        const url = URL.createObjectURL(file);
+        setImagePreviewUrl(url);
+      } else {
+        setImagePreviewUrl(null);
+      }
     }
   };
 
@@ -355,15 +379,30 @@ export default function ChatPage() {
         <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-700 p-4">
           <div className="max-w-3xl mx-auto">
             {selectedFile && (
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl p-3 mb-3 border border-slate-200 dark:border-slate-700">
-                {selectedFile.type.startsWith('image/') ? <ImageIcon className="w-5 h-5 text-emerald-500" /> : <FileIcon className="w-5 h-5 text-blue-500" />}
-                <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
-                <button 
-                  onClick={() => setSelectedFile(null)}
-                  className="text-slate-400 hover:text-rose-500 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+              <div>
+                <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl p-3 mb-3 border border-slate-200 dark:border-slate-700">
+                  {selectedFile.type.startsWith('image/') ? <ImageIcon className="w-5 h-5 text-emerald-500" /> : <FileIcon className="w-5 h-5 text-blue-500" />}
+                  <span className="text-sm flex-1 truncate">{selectedFile.name}</span>
+                  <button 
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setImagePreviewUrl(null);
+                    }}
+                    className="text-slate-400 hover:text-rose-500 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                {imagePreviewUrl && (
+                  <div className="mb-3">
+                    <img
+                      src={imagePreviewUrl}
+                      alt="preview"
+                      className="max-h-32 cursor-pointer rounded-lg shadow-md"
+                      onClick={() => window.open(imagePreviewUrl, '_blank')}
+                    />
+                  </div>
+                )}
               </div>
             )}
             <div className="flex gap-2">

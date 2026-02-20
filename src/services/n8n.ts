@@ -16,6 +16,27 @@ interface N8nPayload {
     credit: number;
   }>;
   confidence: number;
+  imageData?: {
+    base64: string;
+    mimeType: string;
+    fileName: string;
+  };
+}
+
+/**
+ * Helper function to convert File to base64
+ */
+export async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Extract base64 string after the comma
+      resolve(result.split(',')[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 /**
@@ -23,7 +44,8 @@ interface N8nPayload {
  */
 export async function sendToN8n(
   userMessage: string,
-  data: ExtractedTransactionData
+  data: ExtractedTransactionData,
+  imageFile?: File
 ): Promise<{ success: boolean; data?: ExtractedTransactionData | Record<string, unknown>; error?: string }> {
   try {
     const payload: N8nPayload = {
@@ -35,6 +57,16 @@ export async function sendToN8n(
       entries: data.entries || [],
       confidence: data.confidence || 0.9
     };
+
+    // Add image data if provided
+    if (imageFile) {
+      const base64 = await fileToBase64(imageFile);
+      payload.imageData = {
+        base64,
+        mimeType: imageFile.type,
+        fileName: imageFile.name
+      };
+    }
 
     console.log('Sending to n8n webhook:', { url: N8N_WEBHOOK_URL, payload });
 
