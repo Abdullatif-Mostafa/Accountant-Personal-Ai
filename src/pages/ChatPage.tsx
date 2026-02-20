@@ -10,7 +10,7 @@ import {
   // LayoutDashboard, 
   // MessageSquare, 
   // FileText, 
-  // BarChart3, 
+  // BarChart3,
   LogOut,
   Send,
   Paperclip,
@@ -99,22 +99,19 @@ export default function ChatPage() {
         } else {
           fileContent = `📎 ملف: ${selectedFile.name}\n\nنوع الملف: ${selectedFile.type || 'غير معروف'}`;
         }
-        
         setSelectedFile(null);
       }
-
       // Parse the text message or file content locally
       const extractedData = parseUserMessage(fileContent || userMessage.content);
 
       // Send to n8n webhook (even if amount is 0 for general content)
       const response = await sendToN8n(userMessage.content, extractedData);
-
+      console.log(" response ",response)      
       if (response.success) {
         const amount = extractedData.amount ?? 0;
         const amountText = amount > 0 
           ? `💰 **المبلغ:** ${amount} ريال\n`
-          : '';
-        
+          : ''
         const aiResponse: ChatMessage = {
           id: `ai-${Date.now()}`,
           role: 'assistant',
