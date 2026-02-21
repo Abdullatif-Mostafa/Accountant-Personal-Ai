@@ -100,16 +100,29 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      // If user selected a file, use the input message (if any) as the content
-      // Don't add automatic descriptions for files
-      const fileContent = inputMessage || (selectedFile ? selectedFile.name : '');
+      // If user selected a file without text message, don't extract description
+      // Only extract data if there's a text message
+      let extractedData: ExtractedTransactionData;
       
-      // Parse the text message or file name
-      const extractedData = parseUserMessage(fileContent);
-
+      if (selectedFile && !inputMessage.trim()) {
+        // File only - no description extraction
+        extractedData = {
+          description: '',
+          amount: 0,
+          date: new Date().toISOString().split('T')[0],
+          category: 'عام',
+          confidence: 0.5,
+          entries: []
+        };
+      } else {
+        // Text message or text + file - extract data
+        const fileContent = inputMessage || (selectedFile ? selectedFile.name : '');
+        extractedData = parseUserMessage(fileContent);
+      }
       // Send to n8n webhook with file if selected
+      const messageToSend = inputMessage || '';
       const response = await sendToN8n(
-        userMessage.content || selectedFile?.name || '',
+        messageToSend,
         extractedData,
         selectedFile || undefined
       );
@@ -123,10 +136,13 @@ export default function ChatPage() {
         const amountText = amount > 0 
           ? `💰 **المبلغ:** ${amount} ريال\n`
           : ''
+        const descriptionText = extractedData.description 
+          ? `📋 **الوصف:** ${extractedData.description}\n`
+          : ''
         const aiResponse: ChatMessage = {
           id: `ai-${Date.now()}`,
           role: 'assistant',
-          content: `✅ **تم معالجة المحتوى بنجاح!**\n\n📋 **الوصف:** ${extractedData.description}\n${amountText}📂 **التصنيف:** ${extractedData.category}\n📅 **التاريخ:** ${extractedData.date}\n🎯 **الدقة:** ${Math.round(((extractedData.confidence ?? 0) * 100))}%\n\n${amount > 0 ? 'هل تريد مراجعة القيد المحاسبي قبل الحفظ؟' : 'تم حفظ المحتوى بنجاح!'}`,
+          content: `✅ **تم معالجة المحتوى بنجاح!**\n\n${descriptionText}${amountText}📂 **التصنيف:** ${extractedData.category}\n📅 **التاريخ:** ${extractedData.date}\n🎯 **الدقة:** ${Math.round(((extractedData.confidence ?? 0) * 100))}%\n\n${amount > 0 ? 'هل تريد مراجعة القيد المحاسبي قبل الحفظ؟' : 'تم حفظ المحتوى بنجاح!'}`,
           timestamp: new Date().toISOString(),
           extractedData
         };
